@@ -1,0 +1,8 @@
+# Python Environment & Cache
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Private Secrets (Do NOT push to GitHub)
+.streamlit/secrets.toml
