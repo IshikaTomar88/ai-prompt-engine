@@ -1,5 +1,4 @@
 import streamlit as st
-import json
 import time
 import pandas as pd
 import plotly.express as px
@@ -7,7 +6,7 @@ from pydantic import BaseModel, Field
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 
-# Page Configuration
+# Streamlit Page Setup
 st.set_page_config(
     page_title="Enterprise AI Prompt Engine",
     page_icon="⚡",
@@ -18,13 +17,10 @@ st.set_page_config(
 st.markdown("""
     <style>
     .stApp { max-width: 1250px; margin: 0 auto; }
-    .metric-card { background-color: #f0f2f6; border-radius: 8px; padding: 15px; border-left: 5px solid #ff4b4b; }
     </style>
 """, unsafe_allow_html=True)
 
-# ------------------------------------------------------------------
-# 1. PYDANTIC SCHEMAS (Structured API Outputs)
-# ------------------------------------------------------------------
+# Pydantic Schema Definition
 class CustomerInsight(BaseModel):
     sentiment: str = Field(description="Overall sentiment: Positive, Neutral, or Negative")
     urgency_score: int = Field(description="Urgency score from 1 (low) to 10 (critical)")
@@ -32,17 +28,16 @@ class CustomerInsight(BaseModel):
     actionable_steps: list[str] = Field(description="3 strategic actions to resolve the issue")
     optimized_reply: str = Field(description="Polished email response tailored to user context")
 
-# ------------------------------------------------------------------
-# 2. SIDEBAR CONFIGURATION
-# ------------------------------------------------------------------
+# Sidebar Setup
 st.sidebar.title("⚙️ Engine Configuration")
 
-# Handle API Key securely
+# Extract API key safely from secrets or user input
+api_key_from_secrets = st.secrets.get("OPENAI_API_KEY", "")
 openai_api_key = st.sidebar.text_input(
     "OpenAI API Key",
     type="password",
-    value=st.secrets.get("OPENAI_API_KEY", ""),
-    help="Enter key or add to .streamlit/secrets.toml"
+    value=api_key_from_secrets,
+    help="Provided via .streamlit/secrets.toml or input here manually."
 )
 
 selected_model = st.sidebar.selectbox(
@@ -52,9 +47,7 @@ selected_model = st.sidebar.selectbox(
 
 temperature = st.sidebar.slider("Temperature (Creativity)", 0.0, 1.0, 0.2, 0.05)
 
-# ------------------------------------------------------------------
-# 3. MAIN DASHBOARD UI
-# ------------------------------------------------------------------
+# Main Dashboard Interface
 st.title("⚡ Enterprise Prompt Engineering & API Pipeline")
 st.caption("Production-grade LangChain pipeline featuring structured JSON outputs, latency tracking, and analytical execution.")
 
@@ -84,12 +77,10 @@ with col_in:
 
     run_btn = st.button("🚀 Process API Pipeline", type="primary", use_container_width=True)
 
-# ------------------------------------------------------------------
-# 4. EXECUTION ENGINE
-# ------------------------------------------------------------------
+# Pipeline Execution
 if run_btn:
     if not openai_api_key:
-        st.error("🔑 API Key Required! Please provide your OpenAI key in the sidebar.")
+        st.error("🔑 API Key Required! Please add your OpenAI key to sidebar or secrets.")
     elif not raw_text.strip():
         st.warning("⚠️ Input text cannot be empty.")
     else:
@@ -100,24 +91,20 @@ if run_btn:
                 start_time = time.time()
                 
                 try:
-                    # Initialize LLM
                     llm = ChatOpenAI(
                         model=selected_model,
                         temperature=temperature,
                         api_key=openai_api_key
                     )
                     
-                    # Prompt Template Construction
                     prompt = ChatPromptTemplate.from_messages([
                         ("system", "You are acting as a {role}. Analyze the user's input with strict precision."),
                         ("user", "Tone requested: {tone}\n\nInput Content:\n{input}")
                     ])
 
-                    # Structured Output Enforcement
                     structured_llm = llm.with_structured_output(CustomerInsight)
                     chain = prompt | structured_llm
 
-                    # Execute Chain
                     response: CustomerInsight = chain.invoke({
                         "role": target_role,
                         "tone": tone,
@@ -126,13 +113,13 @@ if run_btn:
                     
                     latency = round(time.time() - start_time, 2)
 
-                    # --- METRICS ROW ---
+                    # Display Metrics
                     m1, m2, m3 = st.columns(3)
                     m1.metric("Sentiment", response.sentiment)
                     m2.metric("Urgency", f"{response.urgency_score}/10")
                     m3.metric("Latency", f"{latency}s")
 
-                    # --- DETAILED TAB OUTPUT ---
+                    # Tabbed Data Presentation
                     tab_parsed, tab_action, tab_json = st.tabs(["📝 Generated Output", "📋 Action Plan", "🔍 Raw JSON"])
 
                     with tab_parsed:
